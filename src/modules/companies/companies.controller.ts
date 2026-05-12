@@ -1,0 +1,109 @@
+import {
+  Controller, Get, Post, Body, Param, Query, UseGuards, HttpCode,
+} from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { CompaniesService } from './companies.service';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { AuthUser } from '../../common/types/auth-user.type';
+import { CreateCompanyDto } from './dto/create-company.dto';
+import { ValidateDocsDto } from './dto/validate-docs.dto';
+import { ApproveLicenseDto } from './dto/approve-license.dto';
+import { RejectOrSuspendDto } from './dto/reject-or-suspend.dto';
+import { PaginationDto } from '../../common/dto/pagination.dto';
+
+@ApiTags('Companies')
+@ApiBearerAuth('JWT')
+@Controller('companies')
+export class CompaniesController {
+  constructor(private companiesService: CompaniesService) {}
+
+  @Post()
+  @UseGuards(JwtAuthGuard)
+  create(@Body() dto: CreateCompanyDto) {
+    return this.companiesService.create(dto);
+  }
+
+  @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('state', 'staff')
+  findAll(@Query() pagination: PaginationDto) {
+    return this.companiesService.findAll(pagination);
+  }
+
+  @Get(':id')
+  @UseGuards(JwtAuthGuard)
+  findOne(@Param('id') id: string) {
+    return this.companiesService.findOne(id);
+  }
+
+  @Post(':id/validate-documentation')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('staff')
+  validateDocumentation(
+    @Param('id') id: string,
+    @Body() dto: ValidateDocsDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.companiesService.validateDocumentation(id, dto, user);
+  }
+
+  @Post(':id/forward-to-state')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('staff')
+  forwardToState(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.companiesService.forwardToState(id, user);
+  }
+
+  @Post(':id/approve-license')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('state')
+  approveLicense(
+    @Param('id') id: string,
+    @Body() dto: ApproveLicenseDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.companiesService.approveLicense(id, dto, user);
+  }
+
+  @Post(':id/reject-license')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('state')
+  rejectLicense(
+    @Param('id') id: string,
+    @Body() dto: RejectOrSuspendDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.companiesService.rejectLicense(id, dto, user);
+  }
+
+  @Post(':id/suspend')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('state')
+  suspend(
+    @Param('id') id: string,
+    @Body() dto: RejectOrSuspendDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.companiesService.suspend(id, dto, user);
+  }
+
+  @Post(':id/revoke')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('state')
+  revoke(
+    @Param('id') id: string,
+    @Body() dto: RejectOrSuspendDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.companiesService.revoke(id, dto, user);
+  }
+}

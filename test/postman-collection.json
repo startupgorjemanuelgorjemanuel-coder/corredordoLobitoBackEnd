@@ -1,0 +1,533 @@
+{
+  "info": {
+    "name": "Corredor do Lobito — MVP API",
+    "description": "Colecção completa com o fluxo E2E de 24 passos e testes de RBAC.\n\nImportar no Postman ou Insomnia.\n\nVariável de ambiente necessária: BASE_URL = http://localhost:3000",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "BASE_URL",    "value": "http://localhost:3000" },
+    { "key": "PASSWORD",    "value": "Lobito@Dev2024!" },
+    { "key": "TOKEN_STATE",      "value": "" },
+    { "key": "TOKEN_STAFF",      "value": "" },
+    { "key": "TOKEN_SPECIALIST", "value": "" },
+    { "key": "TOKEN_PRODUCER",   "value": "" },
+    { "key": "TOKEN_BUYER",      "value": "" },
+    { "key": "TOKEN_OPERATOR",   "value": "" },
+    { "key": "TOKEN_CUSTOMS",    "value": "" },
+    { "key": "COMPANY_ID",       "value": "" },
+    { "key": "PRODUCT_ID",       "value": "" },
+    { "key": "PROPOSAL_ID",      "value": "" },
+    { "key": "ORDER_ID",         "value": "" },
+    { "key": "SHIPMENT_ID",      "value": "" }
+  ],
+  "item": [
+    {
+      "name": "01 — AUTH",
+      "item": [
+        {
+          "name": "Login STAFF",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 201', () => pm.response.to.have.status(201));",
+            "const j = pm.response.json();",
+            "pm.collectionVariables.set('TOKEN_STAFF', j.access_token);",
+            "pm.test('role staff', () => pm.expect(j.user.role).to.eql('staff'));"
+          ]}}],
+          "request": {
+            "method": "POST", "url": "{{BASE_URL}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"email\":\"staff@lobito.gov\",\"password\":\"{{PASSWORD}}\"}" }
+          }
+        },
+        {
+          "name": "Login STATE",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 201', () => pm.response.to.have.status(201));",
+            "pm.collectionVariables.set('TOKEN_STATE', pm.response.json().access_token);"
+          ]}}],
+          "request": {
+            "method": "POST", "url": "{{BASE_URL}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"email\":\"state@lobito.gov\",\"password\":\"{{PASSWORD}}\"}" }
+          }
+        },
+        {
+          "name": "Login SPECIALIST",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 201', () => pm.response.to.have.status(201));",
+            "pm.collectionVariables.set('TOKEN_SPECIALIST', pm.response.json().access_token);"
+          ]}}],
+          "request": {
+            "method": "POST", "url": "{{BASE_URL}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"email\":\"specialist@lobito.gov\",\"password\":\"{{PASSWORD}}\"}" }
+          }
+        },
+        {
+          "name": "Login PRODUCER",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 201', () => pm.response.to.have.status(201));",
+            "pm.collectionVariables.set('TOKEN_PRODUCER', pm.response.json().access_token);"
+          ]}}],
+          "request": {
+            "method": "POST", "url": "{{BASE_URL}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"email\":\"producer@lobito.biz\",\"password\":\"{{PASSWORD}}\"}" }
+          }
+        },
+        {
+          "name": "Login BUYER",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 201', () => pm.response.to.have.status(201));",
+            "pm.collectionVariables.set('TOKEN_BUYER', pm.response.json().access_token);"
+          ]}}],
+          "request": {
+            "method": "POST", "url": "{{BASE_URL}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"email\":\"buyer@lobito.biz\",\"password\":\"{{PASSWORD}}\"}" }
+          }
+        },
+        {
+          "name": "Login OPERATOR",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 201', () => pm.response.to.have.status(201));",
+            "pm.collectionVariables.set('TOKEN_OPERATOR', pm.response.json().access_token);"
+          ]}}],
+          "request": {
+            "method": "POST", "url": "{{BASE_URL}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"email\":\"operator@lobito.biz\",\"password\":\"{{PASSWORD}}\"}" }
+          }
+        },
+        {
+          "name": "Login CUSTOMS",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 201', () => pm.response.to.have.status(201));",
+            "pm.collectionVariables.set('TOKEN_CUSTOMS', pm.response.json().access_token);"
+          ]}}],
+          "request": {
+            "method": "POST", "url": "{{BASE_URL}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"email\":\"customs@lobito.gov\",\"password\":\"{{PASSWORD}}\"}" }
+          }
+        },
+        {
+          "name": "Login credenciais erradas → 401",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 401', () => pm.response.to.have.status(401));"
+          ]}}],
+          "request": {
+            "method": "POST", "url": "{{BASE_URL}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"email\":\"state@lobito.gov\",\"password\":\"wrong\"}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 — COMPANIES",
+      "item": [
+        {
+          "name": "Passo 2 — Criar empresa",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 201', () => pm.response.to.have.status(201));",
+            "const j = pm.response.json();",
+            "pm.collectionVariables.set('COMPANY_ID', j.id);",
+            "pm.test('licenseStatus pending', () => pm.expect(j.licenseStatus).to.eql('pending'));"
+          ]}}],
+          "request": {
+            "method": "POST", "url": "{{BASE_URL}}/companies",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"name\":\"Lobito Trade Lda\",\"country\":\"angola\",\"contactEmail\":\"geral@lobitotrade.ao\",\"contactPhone\":\"+244 923 000 001\",\"address\":\"Rua da Industria, 42, Lobito\"}" }
+          }
+        },
+        {
+          "name": "Passo 3 — STAFF valida documentação",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "pm.test('licenseStatus under_review', () => pm.expect(pm.response.json().licenseStatus).to.eql('under_review'));"
+          ]}}],
+          "request": {
+            "method": "POST", "url": "{{BASE_URL}}/companies/{{COMPANY_ID}}/validate-documentation",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{TOKEN_STAFF}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"valid\":true,\"notes\":\"Documentacao completa e valida\"}" }
+          }
+        },
+        {
+          "name": "Passo 5 — STATE aprova licença",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "pm.test('licenseStatus active', () => pm.expect(pm.response.json().licenseStatus).to.eql('active'));"
+          ]}}],
+          "request": {
+            "method": "POST", "url": "{{BASE_URL}}/companies/{{COMPANY_ID}}/approve-license",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{TOKEN_STATE}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"licenseNumber\":\"LIC-2026-001\",\"licenseExpiresAt\":\"2028-12-31T23:59:59.000Z\"}" }
+          }
+        },
+        {
+          "name": "RBAC — BUYER aprova licença → 403",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 403', () => pm.response.to.have.status(403));"
+          ]}}],
+          "request": {
+            "method": "POST", "url": "{{BASE_URL}}/companies/{{COMPANY_ID}}/approve-license",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{TOKEN_BUYER}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"licenseNumber\":\"X\",\"licenseExpiresAt\":\"2028-01-01T00:00:00.000Z\"}" }
+          }
+        },
+        {
+          "name": "Listar empresas [state]",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "pm.test('array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+          ]}}],
+          "request": {
+            "method": "GET", "url": "{{BASE_URL}}/companies",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN_STATE}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 — PRODUCTS",
+      "item": [
+        {
+          "name": "Passo 7 — PRODUCER cria produto",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 201', () => pm.response.to.have.status(201));",
+            "const j = pm.response.json();",
+            "pm.collectionVariables.set('PRODUCT_ID', j.id);",
+            "pm.test('status draft', () => pm.expect(j.status).to.eql('draft'));"
+          ]}}],
+          "request": {
+            "method": "POST", "url": "{{BASE_URL}}/products",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{TOKEN_PRODUCER}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"name\":\"Cimento Portland 50kg\",\"description\":\"Para construcao civil\",\"category\":\"general\",\"companyId\":\"{{COMPANY_ID}}\"}" }
+          }
+        },
+        {
+          "name": "Passo 8 — PRODUCER solicita publicação",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "pm.test('status pending_review', () => pm.expect(pm.response.json().status).to.eql('pending_review'));"
+          ]}}],
+          "request": {
+            "method": "POST", "url": "{{BASE_URL}}/products/{{PRODUCT_ID}}/request-publication",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN_PRODUCER}}" }]
+          }
+        },
+        {
+          "name": "Passo 13 — STATE aprova publicação",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "pm.test('published_official', () => pm.expect(pm.response.json().status).to.eql('published_official'));"
+          ]}}],
+          "request": {
+            "method": "POST", "url": "{{BASE_URL}}/products/{{PRODUCT_ID}}/approve-publication",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN_STATE}}" }]
+          }
+        },
+        {
+          "name": "RBAC — BUYER cria produto → 403",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 403', () => pm.response.to.have.status(403));"
+          ]}}],
+          "request": {
+            "method": "POST", "url": "{{BASE_URL}}/products",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{TOKEN_BUYER}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"name\":\"X\",\"category\":\"general\",\"companyId\":\"{{COMPANY_ID}}\"}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 — PRICE PROPOSALS",
+      "item": [
+        {
+          "name": "Passo 10 — SPECIALIST cria proposta",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 201', () => pm.response.to.have.status(201));",
+            "const j = pm.response.json();",
+            "pm.collectionVariables.set('PROPOSAL_ID', j.id);",
+            "pm.test('status draft', () => pm.expect(j.status).to.eql('draft'));"
+          ]}}],
+          "request": {
+            "method": "POST", "url": "{{BASE_URL}}/price-proposals",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{TOKEN_SPECIALIST}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"productId\":\"{{PRODUCT_ID}}\",\"proposedPrice\":45.00,\"currency\":\"USD\",\"justification\":\"Preco de mercado regional\",\"validFrom\":\"2026-01-01T00:00:00.000Z\",\"validTo\":\"2026-12-31T23:59:59.000Z\"}" }
+          }
+        },
+        {
+          "name": "Passo 11 — SPECIALIST submete",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "pm.test('status submitted', () => pm.expect(pm.response.json().status).to.eql('submitted'));"
+          ]}}],
+          "request": {
+            "method": "POST", "url": "{{BASE_URL}}/price-proposals/{{PROPOSAL_ID}}/submit",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN_SPECIALIST}}" }]
+          }
+        },
+        {
+          "name": "Passo 14 — STATE aprova + snapshot",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "const j = pm.response.json();",
+            "pm.test('approved', () => pm.expect(j.status).to.eql('approved'));",
+            "pm.test('snapshot imutavel', () => pm.expect(j.snapshot.immutable).to.be.true);",
+            "pm.test('preco snapshot', () => pm.expect(j.snapshot.approvedPriceUsd).to.eql(45));"
+          ]}}],
+          "request": {
+            "method": "POST", "url": "{{BASE_URL}}/price-proposals/{{PROPOSAL_ID}}/approve",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN_STATE}}" }]
+          }
+        },
+        {
+          "name": "RBAC — SPECIALIST aprova → 403",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 403', () => pm.response.to.have.status(403));"
+          ]}}],
+          "request": {
+            "method": "POST", "url": "{{BASE_URL}}/price-proposals/{{PROPOSAL_ID}}/approve",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN_SPECIALIST}}" }]
+          }
+        },
+        {
+          "name": "RBAC — PUT em proposta aprovada → 403",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 403', () => pm.response.to.have.status(403));"
+          ]}}],
+          "request": {
+            "method": "PUT", "url": "{{BASE_URL}}/price-proposals/{{PROPOSAL_ID}}",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{TOKEN_SPECIALIST}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"proposedPrice\":999}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 — TAXES",
+      "item": [
+        {
+          "name": "Listar impostos",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "pm.test('array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+          ]}}],
+          "request": {
+            "method": "GET", "url": "{{BASE_URL}}/taxes",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN_STATE}}" }]
+          }
+        },
+        {
+          "name": "Impostos por país (angola)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));"
+          ]}}],
+          "request": {
+            "method": "GET", "url": "{{BASE_URL}}/taxes/country/angola",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN_STATE}}" }]
+          }
+        },
+        {
+          "name": "STATE cria regra fiscal",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 201', () => pm.response.to.have.status(201));"
+          ]}}],
+          "request": {
+            "method": "POST", "url": "{{BASE_URL}}/taxes",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{TOKEN_STATE}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"name\":\"IVA Especial Angola\",\"category\":\"special\",\"country\":\"angola\",\"rate\":0.05,\"effectiveFrom\":\"2026-01-01T00:00:00.000Z\"}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 — ORDERS",
+      "item": [
+        {
+          "name": "Passo 16 — BUYER cria pedido",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 201', () => pm.response.to.have.status(201));",
+            "const j = pm.response.json();",
+            "pm.collectionVariables.set('ORDER_ID', j.id);",
+            "pm.test('status draft', () => pm.expect(j.status).to.eql('draft'));"
+          ]}}],
+          "request": {
+            "method": "POST", "url": "{{BASE_URL}}/orders",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{TOKEN_BUYER}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"companyId\":\"{{COMPANY_ID}}\",\"lines\":[{\"productId\":\"{{PRODUCT_ID}}\",\"priceProposalId\":\"{{PROPOSAL_ID}}\",\"qty\":10}]}" }
+          }
+        },
+        {
+          "name": "Passo 17 — BUYER paga (imposto calculado)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "const j = pm.response.json();",
+            "pm.test('paid', () => pm.expect(j.status).to.eql('paid'));",
+            "pm.test('netAmount 450', () => pm.expect(parseFloat(j.netAmount)).to.be.closeTo(450, 0.1));",
+            "pm.test('taxAmount 63 (14%)', () => pm.expect(parseFloat(j.taxAmount)).to.be.closeTo(63, 0.1));",
+            "pm.test('totalAmount 513', () => pm.expect(parseFloat(j.totalAmount)).to.be.closeTo(513, 0.1));"
+          ]}}],
+          "request": {
+            "method": "POST", "url": "{{BASE_URL}}/orders/{{ORDER_ID}}/pay",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN_BUYER}}" }]
+          }
+        },
+        {
+          "name": "RBAC — STAFF bloqueia pedido → 403",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 403', () => pm.response.to.have.status(403));"
+          ]}}],
+          "request": {
+            "method": "POST", "url": "{{BASE_URL}}/orders/{{ORDER_ID}}/block",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{TOKEN_STAFF}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"reason\":\"Tentativa nao autorizada\"}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 — SHIPMENTS",
+      "item": [
+        {
+          "name": "Passo 19 — OPERATOR cria embarque",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 201', () => pm.response.to.have.status(201));",
+            "const j = pm.response.json();",
+            "pm.collectionVariables.set('SHIPMENT_ID', j.id);",
+            "pm.test('status created', () => pm.expect(j.status).to.eql('created'));"
+          ]}}],
+          "request": {
+            "method": "POST", "url": "{{BASE_URL}}/shipments",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{TOKEN_OPERATOR}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"orderId\":\"{{ORDER_ID}}\",\"origin\":\"Porto do Lobito, Angola\",\"destination\":\"Lusaka, Zambia\",\"eta\":\"2026-06-15T08:00:00.000Z\"}" }
+          }
+        },
+        {
+          "name": "Passo 20 — OPERATOR actualiza tracking",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "const j = pm.response.json();",
+            "pm.test('in_transit', () => pm.expect(j.status).to.eql('in_transit'));",
+            "pm.test('trackingEvents append', () => pm.expect(j.trackingEvents.length).to.be.greaterThan(0));"
+          ]}}],
+          "request": {
+            "method": "PUT", "url": "{{BASE_URL}}/shipments/{{SHIPMENT_ID}}/tracking",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{TOKEN_OPERATOR}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"location\":\"Fronteira Malanje km 142\",\"status\":\"in_transit\",\"notes\":\"Sem incidentes\"}" }
+          }
+        },
+        {
+          "name": "Passo 22 — CUSTOMS aprova embarque",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 201', () => pm.response.to.have.status(201));",
+            "pm.test('approved', () => pm.expect(pm.response.json().status).to.eql('approved'));"
+          ]}}],
+          "request": {
+            "method": "POST", "url": "{{BASE_URL}}/shipments/{{SHIPMENT_ID}}/approve",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{TOKEN_CUSTOMS}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"notes\":\"Documentacao conforme. Aprovado.\"}" }
+          }
+        },
+        {
+          "name": "RBAC — OPERATOR aprova embarque → 403",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 403', () => pm.response.to.have.status(403));"
+          ]}}],
+          "request": {
+            "method": "POST", "url": "{{BASE_URL}}/shipments/{{SHIPMENT_ID}}/approve",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{TOKEN_OPERATOR}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 — AUDIT LOGS",
+      "item": [
+        {
+          "name": "Passo 24 — Audit trail do pedido",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "const logs = pm.response.json();",
+            "pm.test('tem logs', () => pm.expect(logs.length).to.be.greaterThan(0));",
+            "const actions = logs.map(l => l.action);",
+            "pm.test('CREATE_ORDER', () => pm.expect(actions).to.include('CREATE_ORDER'));",
+            "pm.test('PAY_ORDER', () => pm.expect(actions).to.include('PAY_ORDER'));"
+          ]}}],
+          "request": {
+            "method": "GET", "url": "{{BASE_URL}}/logs?entity=order&entityId={{ORDER_ID}}",
+            "header": [{ "key": "Authorization", "value": "Bearer {{TOKEN_STATE}}" }]
+          }
+        },
+        {
+          "name": "RBAC — POST /logs → 404 (não existe)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 404', () => pm.response.to.have.status(404));"
+          ]}}],
+          "request": {
+            "method": "POST", "url": "{{BASE_URL}}/logs",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{TOKEN_STATE}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{}" }
+          }
+        },
+        {
+          "name": "RBAC — Sem token → 401",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('status 401', () => pm.response.to.have.status(401));"
+          ]}}],
+          "request": {
+            "method": "GET", "url": "{{BASE_URL}}/logs",
+            "header": []
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+node_modules
+dist
+.env
+
+# Prisma
+/generated/prisma
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Coverage
+coverage

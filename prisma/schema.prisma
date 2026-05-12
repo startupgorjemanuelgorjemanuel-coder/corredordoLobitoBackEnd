@@ -1,0 +1,392 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  admin
+  state
+  staff
+  specialist
+  analyst
+  producer
+  buyer
+  operator
+  customs
+  compliance
+  company
+}
+
+enum UserStatus {
+  active
+  blocked
+}
+
+enum LicenseStatus {
+  pending
+  under_review
+  active
+  rejected
+  suspended
+}
+
+enum CompanyCountry {
+  angola
+  zambia
+  drc
+  tanzania
+  zimbabwe
+  mozambique
+}
+
+enum ProductStatus {
+  draft
+  pending_review
+  published_official
+  suspended
+  rejected
+}
+
+enum PriceProposalStatus {
+  draft
+  submitted
+  approved
+  rejected
+}
+
+enum OrderStatus {
+  draft
+  confirmed
+  paid
+  blocked
+  cancelled
+}
+
+enum TransactionStatus {
+  pending
+  completed
+  blocked
+  cancelled
+  refunded
+}
+
+enum PaymentMethod {
+  bank_transfer
+  cash
+  credit_card
+  letter_of_credit
+  other
+}
+
+enum ShipmentStatus {
+  created
+  in_transit
+  at_border
+  customs_approved
+  customs_rejected
+  held
+  delivered
+}
+
+enum CustomsStatus {
+  pending
+  approved
+  rejected
+  held
+}
+
+enum ReportStatus {
+  draft
+  submitted
+  published
+}
+
+enum ReportType {
+  operational
+  fiscal
+  strategic
+  compliance
+}
+
+enum TargetAudience {
+  public
+  government
+  internal
+}
+
+// ─── MODELS ──────────────────────────────────────────────────────────────────
+
+model User {
+  id           String     @id @default(uuid())
+  cd           String     @unique
+  email        String     @unique
+  passwordHash String
+  fullName     String
+  role         Role
+  status       UserStatus @default(active)
+  companyId    String?
+  lastLoginAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  company           Company?          @relation(fields: [companyId], references: [id])
+  producedProducts  Product[]         @relation("ProducerProducts")
+  priceProposals    PriceProposal[]   @relation("ProposalCreator")
+  orders            Order[]           @relation("BuyerOrders")
+  taxes             Tax[]
+  operatorShipments Shipment[]        @relation("OperatorShipments")
+  customsDispatches CustomsDispatch[] @relation("CustomsDispatches")
+  reports           Report[]          @relation("ReportAuthor")
+
+  @@map("users")
+}
+
+model Company {
+  id                 String         @id @default(uuid())
+  cd                 String         @unique
+  name               String
+  country            CompanyCountry
+  contactEmail       String
+  contactPhone       String?
+  address            String?
+  licenseStatus      LicenseStatus  @default(pending)
+  licenseNumber      String?
+  licenseExpiresAt   DateTime?
+  rejectionReason    String?
+  suspensionReason   String?
+  validationNotes    String?
+  approvedByStateId  String?
+  validatedByStaffId String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  users    User[]
+  products Product[]
+  orders   Order[]
+
+  @@map("companies")
+}
+
+model Product {
+  id              String        @id @default(uuid())
+  cd              String        @unique
+  name            String
+  description     String?
+  category        String
+  producerId      String
+  companyId       String
+  status          ProductStatus @default(draft)
+  rejectionReason String?
+  publishedAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  producer       User            @relation("ProducerProducts", fields: [producerId], references: [id])
+  company        Company         @relation(fields: [companyId], references: [id])
+  priceProposals PriceProposal[]
+  orderLines     OrderLine[]
+
+  @@map("products")
+}
+
+model PriceProposal {
+  id              String              @id @default(uuid())
+  cd              String              @unique
+  productId       String
+  createdById     String
+  approvedById    String?
+  status          PriceProposalStatus @default(draft)
+  proposedPrice   Decimal             @db.Decimal(15, 4)
+  currency        String              @default("USD")
+  justification   String?
+  rejectionReason String?
+  snapshot        Json?
+  submittedAt     DateTime?
+  approvedAt      DateTime?
+  validFrom       DateTime?
+  validTo         DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  product    Product     @relation(fields: [productId], references: [id])
+  createdBy  User        @relation("ProposalCreator", fields: [createdById], references: [id])
+  orderLines OrderLine[]
+
+  @@map("price_proposals")
+}
+
+model Tax {
+  id            String    @id @default(uuid())
+  cd            String    @unique
+  name          String
+  category      String
+  country       String
+  rate          Decimal   @db.Decimal(5, 4)
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  isActive      Boolean   @default(true)
+  createdById   String
+  createdAt     DateTime  @default(now())
+
+  createdBy User @relation(fields: [createdById], references: [id])
+
+  @@index([country, category, effectiveFrom])
+  @@map("taxes")
+}
+
+model Order {
+  id            String      @id @default(uuid())
+  cd            String      @unique
+  buyerId       String
+  companyId     String
+  status        OrderStatus @default(draft)
+  totalAmount   Decimal?    @db.Decimal(15, 4)
+  taxAmount     Decimal?    @db.Decimal(15, 4)
+  netAmount     Decimal?    @db.Decimal(15, 4)
+  currency      String      @default("USD")
+  blockedReason String?
+  blockedById   String?
+  blockedAt     DateTime?
+  paidAt        DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  buyer       User        @relation("BuyerOrders", fields: [buyerId], references: [id])
+  company     Company     @relation(fields: [companyId], references: [id])
+  lines       OrderLine[]
+  shipments   Shipment[]
+  transaction Transaction?
+
+  @@map("orders")
+}
+
+model OrderLine {
+  id              String   @id @default(uuid())
+  cd              String   @unique
+  orderId         String
+  productId       String
+  priceProposalId String
+  qty             Int
+  unitPrice       Decimal  @db.Decimal(15, 4)
+  taxRate         Decimal? @db.Decimal(5, 4)
+  taxAmount       Decimal? @db.Decimal(15, 4)
+  lineTotal       Decimal? @db.Decimal(15, 4)
+  snapshotRef     Json?
+
+  order         Order         @relation(fields: [orderId], references: [id])
+  product       Product       @relation(fields: [productId], references: [id])
+  priceProposal PriceProposal @relation(fields: [priceProposalId], references: [id])
+
+  @@map("order_lines")
+}
+
+model Transaction {
+  id            String            @id @default(uuid())
+  cd            String            @unique
+  orderId       String            @unique
+  amount        Decimal           @db.Decimal(15, 4)
+  currency      String            @default("USD")
+  method        PaymentMethod     @default(bank_transfer)
+  status        TransactionStatus @default(completed)
+  paidAt        DateTime?
+  blockedAt     DateTime?
+  blockedById   String?
+  blockedReason String?
+  cancelledAt   DateTime?
+  metadata      Json?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([status])
+  @@map("transactions")
+}
+
+model Shipment {
+  id             String         @id @default(uuid())
+  cd             String         @unique
+  orderId        String
+  operatorId     String
+  status         ShipmentStatus @default(created)
+  origin         String
+  destination    String
+  eta            DateTime?
+  documents      Json?
+  lastLocation   String?
+  trackingEvents Json?
+  holdReason     String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  order           Order            @relation(fields: [orderId], references: [id])
+  operator        User             @relation("OperatorShipments", fields: [operatorId], references: [id])
+  customsDispatch CustomsDispatch?
+
+  @@map("shipments")
+}
+
+model CustomsDispatch {
+  id              String        @id @default(uuid())
+  cd              String        @unique
+  shipmentId      String        @unique
+  dispatcherId    String
+  status          CustomsStatus @default(pending)
+  notes           String?
+  rejectionReason String?
+  validatedAt     DateTime?
+
+  shipment   Shipment @relation(fields: [shipmentId], references: [id])
+  dispatcher User     @relation("CustomsDispatches", fields: [dispatcherId], references: [id])
+
+  @@map("customs_dispatches")
+}
+
+model Report {
+  id              String         @id @default(uuid())
+  cd              String         @unique
+  title           String
+  type            ReportType
+  authorId        String
+  period          String?
+  content         Json?
+  status          ReportStatus   @default(draft)
+  rejectionReason String?
+  submittedAt     DateTime?
+  publishedAt     DateTime?
+  publishedById   String?
+  targetAudience  TargetAudience @default(internal)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  author User @relation("ReportAuthor", fields: [authorId], references: [id])
+
+  @@index([type])
+  @@index([status])
+  @@map("reports")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  cd         String   @unique
+  userId     String
+  role       String
+  action     String
+  entity     String
+  entityId   String
+  beforeJson String?  @db.Text
+  afterJson  String?  @db.Text
+  meta       String?  @db.Text
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
