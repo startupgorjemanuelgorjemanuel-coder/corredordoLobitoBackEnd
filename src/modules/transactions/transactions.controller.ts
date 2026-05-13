@@ -24,7 +24,7 @@ export class TransactionsController {
   }
 
   @Get('summary')
-  @Roles('state', 'staff')
+  @Roles('state', 'staff', 'specialist', 'compliance')
   @ApiOperation({ summary: 'Resumo financeiro de transacções' })
   getSummary() {
     return this.transactionsService.getSummary();
