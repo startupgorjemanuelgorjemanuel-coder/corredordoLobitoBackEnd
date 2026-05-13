@@ -27,8 +27,8 @@ export class ProductsController {
   @Get('my-products')
   @UseGuards(RolesGuard)
   @Roles('producer')
-  findMyProducts(@CurrentUser() user: AuthUser) {
-    return this.productsService.findMyProducts(user);
+  findMyProducts(@CurrentUser() user: AuthUser, @Query() pagination: PaginationDto) {
+    return this.productsService.findMyProducts(user, pagination);
   }
 
   @Get(':id')

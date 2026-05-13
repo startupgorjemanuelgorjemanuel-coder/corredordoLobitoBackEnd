@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CodeGeneratorService } from '../../common/services/code-generator.service';
+import { paginate, PaginationDto } from '../../common/dto/pagination.dto';
 import type { AuthUser } from '../../common/types/auth-user.type';
 import { CreateTaxDto } from './dto/create-tax.dto';
 import { UpdateTaxDto } from './dto/update-tax.dto';
@@ -12,8 +13,17 @@ export class TaxesService {
     private codeGen: CodeGeneratorService,
   ) {}
 
-  async findAll() {
-    return this.prisma.tax.findMany({ orderBy: { effectiveFrom: 'desc' } });
+  async findAll(pagination?: PaginationDto) {
+    const page  = pagination?.page  ?? 1;
+    const limit = pagination?.limit ?? 100;
+    const skip  = (page - 1) * limit;
+
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.tax.findMany({ skip, take: limit, orderBy: { effectiveFrom: 'desc' } }),
+      this.prisma.tax.count(),
+    ]);
+
+    return paginate(data, total, page, limit);
   }
 
   async findOne(id: string) {
@@ -22,11 +32,18 @@ export class TaxesService {
     return tax;
   }
 
-  async findByCountry(country: string) {
-    return this.prisma.tax.findMany({
-      where:   { country, isActive: true },
-      orderBy: { effectiveFrom: 'desc' },
-    });
+  async findByCountry(country: string, pagination?: PaginationDto) {
+    const page  = pagination?.page  ?? 1;
+    const limit = pagination?.limit ?? 100;
+    const skip  = (page - 1) * limit;
+
+    const where = { country, isActive: true };
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.tax.findMany({ where, skip, take: limit, orderBy: { effectiveFrom: 'desc' } }),
+      this.prisma.tax.count({ where }),
+    ]);
+
+    return paginate(data, total, page, limit);
   }
 
   async create(dto: CreateTaxDto, user: AuthUser) {

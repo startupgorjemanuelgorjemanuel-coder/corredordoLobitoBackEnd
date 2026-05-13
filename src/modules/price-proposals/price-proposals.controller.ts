@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, UseGuards, HttpCode } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, HttpCode } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { PriceProposalsService } from './price-proposals.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -6,6 +6,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { AuthUser } from '../../common/types/auth-user.type';
+import { PaginationDto } from '../../common/dto/pagination.dto';
 import { CreatePriceProposalDto } from './dto/create-price-proposal.dto';
 import { UpdatePriceProposalDto } from './dto/update-price-proposal.dto';
 import { RejectProposalDto } from './dto/reject-proposal.dto';
@@ -20,15 +21,15 @@ export class PriceProposalsController {
   @Get()
   @UseGuards(RolesGuard)
   @Roles('state', 'specialist')
-  findAll() {
-    return this.priceProposalsService.findAll();
+  findAll(@Query() pagination: PaginationDto) {
+    return this.priceProposalsService.findAll(pagination);
   }
 
   @Get('my-proposals')
   @UseGuards(RolesGuard)
   @Roles('specialist')
-  findMyProposals(@CurrentUser() user: AuthUser) {
-    return this.priceProposalsService.findMyProposals(user);
+  findMyProposals(@CurrentUser() user: AuthUser, @Query() pagination: PaginationDto) {
+    return this.priceProposalsService.findMyProposals(user, pagination);
   }
 
   @Get(':id')

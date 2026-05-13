@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CodeGeneratorService } from '../../common/services/code-generator.service';
+import { paginate, PaginationDto } from '../../common/dto/pagination.dto';
 import type { AuthUser } from '../../common/types/auth-user.type';
 import { CreatePriceProposalDto } from './dto/create-price-proposal.dto';
 import { UpdatePriceProposalDto } from './dto/update-price-proposal.dto';
@@ -37,23 +38,37 @@ export class PriceProposalsService {
     });
   }
 
-  async findAll() {
-    return this.prisma.priceProposal.findMany({
-      include: { product: { select: { id: true, name: true, category: true } } },
-      orderBy: { createdAt: 'desc' },
-    });
+  async findAll(pagination?: PaginationDto) {
+    const page  = pagination?.page  ?? 1;
+    const limit = pagination?.limit ?? 20;
+    const skip  = (page - 1) * limit;
+
+    const include = { product: { select: { id: true, name: true, category: true } } };
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.priceProposal.findMany({ skip, take: limit, include, orderBy: { createdAt: 'desc' } }),
+      this.prisma.priceProposal.count(),
+    ]);
+
+    return paginate(data, total, page, limit);
   }
 
   async findOne(id: string) {
     return this.findOrFail(id);
   }
 
-  async findMyProposals(user: AuthUser) {
-    return this.prisma.priceProposal.findMany({
-      where:   { createdById: user.id },
-      include: { product: { select: { id: true, name: true, category: true } } },
-      orderBy: { createdAt: 'desc' },
-    });
+  async findMyProposals(user: AuthUser, pagination?: PaginationDto) {
+    const page  = pagination?.page  ?? 1;
+    const limit = pagination?.limit ?? 20;
+    const skip  = (page - 1) * limit;
+
+    const where   = { createdById: user.id };
+    const include = { product: { select: { id: true, name: true, category: true } } };
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.priceProposal.findMany({ where, skip, take: limit, include, orderBy: { createdAt: 'desc' } }),
+      this.prisma.priceProposal.count({ where }),
+    ]);
+
+    return paginate(data, total, page, limit);
   }
 
   async update(id: string, dto: UpdatePriceProposalDto, user: AuthUser) {

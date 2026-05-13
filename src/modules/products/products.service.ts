@@ -64,12 +64,19 @@ export class ProductsService {
     return this.findOrFail(id);
   }
 
-  async findMyProducts(user: AuthUser) {
-    return this.prisma.product.findMany({
-      where:   { producerId: user.id },
-      include: { company: { select: { id: true, name: true } } },
-      orderBy: { createdAt: 'desc' },
-    });
+  async findMyProducts(user: AuthUser, pagination: PaginationDto): Promise<PaginatedResult<any>> {
+    const page  = pagination.page  ?? 1;
+    const limit = pagination.limit ?? 20;
+    const skip  = (page - 1) * limit;
+
+    const where   = { producerId: user.id };
+    const include = { company: { select: { id: true, name: true } } };
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.product.findMany({ where, skip, take: limit, include, orderBy: { createdAt: 'desc' } }),
+      this.prisma.product.count({ where }),
+    ]);
+
+    return paginate(data, total, page, limit);
   }
 
   async update(id: string, dto: UpdateProductDto, user: AuthUser) {

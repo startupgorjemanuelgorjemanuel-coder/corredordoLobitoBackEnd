@@ -4,6 +4,8 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { PrismaService } from '../../prisma/prisma.service';
+import { paginate } from '../../common/dto/pagination.dto';
+import { LogsQueryDto } from './dto/logs-query.dto';
 
 const SUSPICIOUS_ACTIONS = [
   'BLOCK_ORDER', 'CANCEL_ORDER',
@@ -22,35 +24,41 @@ export class AuditController {
 
   @Get()
   @Roles('state', 'compliance')
-  @ApiOperation({ summary: 'Listar audit logs — filtro por entidade/acção' })
-  @ApiQuery({ name: 'entity',   required: false, example: 'order' })
-  @ApiQuery({ name: 'entityId', required: false, example: 'uuid-do-pedido' })
-  @ApiQuery({ name: 'action',   required: false, example: 'BLOCK_ORDER' })
-  findAll(
-    @Query('entity')   entity?:   string,
-    @Query('entityId') entityId?: string,
-    @Query('action')   action?:   string,
-  ) {
-    return this.prisma.auditLog.findMany({
-      where: {
-        ...(entity   ? { entity }   : {}),
-        ...(entityId ? { entityId } : {}),
-        ...(action   ? { action }   : {}),
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 100,
-    });
+  @ApiOperation({ summary: 'Listar audit logs — filtro por entidade/acção — retorna {data, meta}' })
+  async findAll(@Query() query: LogsQueryDto) {
+    const page  = query.page  ?? 1;
+    const limit = query.limit ?? 20;
+    const skip  = (page - 1) * limit;
+
+    const where = {
+      ...(query.entity   ? { entity:   query.entity }   : {}),
+      ...(query.entityId ? { entityId: query.entityId } : {}),
+      ...(query.action   ? { action:   query.action }   : {}),
+    };
+
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.auditLog.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
+      this.prisma.auditLog.count({ where }),
+    ]);
+
+    return paginate(data, total, page, limit);
   }
 
   @Get('suspicious-activities')
   @Roles('state', 'compliance')
-  @ApiOperation({ summary: 'Listar actividades suspeitas — acções de bloqueio, rejeição e cancelamento' })
-  getSuspiciousActivities() {
-    return this.prisma.auditLog.findMany({
-      where: { action: { in: SUSPICIOUS_ACTIONS } },
-      orderBy: { createdAt: 'desc' },
-      take: 200,
-    });
+  @ApiOperation({ summary: 'Listar actividades suspeitas — retorna {data, meta}' })
+  async getSuspiciousActivities(@Query() query: LogsQueryDto) {
+    const page  = query.page  ?? 1;
+    const limit = query.limit ?? 50;
+    const skip  = (page - 1) * limit;
+
+    const where = { action: { in: SUSPICIOUS_ACTIONS } };
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.auditLog.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
+      this.prisma.auditLog.count({ where }),
+    ]);
+
+    return paginate(data, total, page, limit);
   }
 
   @Get(':id')

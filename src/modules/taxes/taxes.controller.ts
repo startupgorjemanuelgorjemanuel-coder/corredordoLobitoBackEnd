@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { TaxesService } from './taxes.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -6,6 +6,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { AuthUser } from '../../common/types/auth-user.type';
+import { PaginationDto } from '../../common/dto/pagination.dto';
 import { CreateTaxDto } from './dto/create-tax.dto';
 import { UpdateTaxDto } from './dto/update-tax.dto';
 
@@ -17,15 +18,15 @@ export class TaxesController {
   constructor(private taxesService: TaxesService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Listar todas as regras fiscais' })
-  findAll() {
-    return this.taxesService.findAll();
+  @ApiOperation({ summary: 'Listar todas as regras fiscais — retorna {data, meta}' })
+  findAll(@Query() pagination: PaginationDto) {
+    return this.taxesService.findAll(pagination);
   }
 
   @Get('country/:code')
-  @ApiOperation({ summary: 'Listar regras fiscais activas por país' })
-  findByCountry(@Param('code') code: string) {
-    return this.taxesService.findByCountry(code);
+  @ApiOperation({ summary: 'Listar regras fiscais activas por país — retorna {data, meta}' })
+  findByCountry(@Param('code') code: string, @Query() pagination: PaginationDto) {
+    return this.taxesService.findByCountry(code, pagination);
   }
 
   @Get(':id')
