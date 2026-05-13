@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards, HttpCode } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, Query, UseGuards, HttpCode } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { OrdersService } from './orders.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -7,6 +7,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { AuthUser } from '../../common/types/auth-user.type';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { UpdateOrderDto } from './dto/update-order.dto';
 import { BlockOrderDto } from './dto/block-order.dto';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 
@@ -41,6 +42,17 @@ export class OrdersController {
   @Roles('buyer')
   create(@Body() dto: CreateOrderDto, @CurrentUser() user: AuthUser) {
     return this.ordersService.create(dto, user);
+  }
+
+  @Put(':id')
+  @UseGuards(RolesGuard)
+  @Roles('buyer')
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateOrderDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.ordersService.update(id, dto, user);
   }
 
   @Post(':id/pay')

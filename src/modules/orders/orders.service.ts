@@ -12,6 +12,7 @@ import { TransactionsService } from '../transactions/transactions.service';
 import { paginate, PaginationDto, PaginatedResult } from '../../common/dto/pagination.dto';
 import type { AuthUser } from '../../common/types/auth-user.type';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { UpdateOrderDto } from './dto/update-order.dto';
 import { BlockOrderDto } from './dto/block-order.dto';
 
 @Injectable()
@@ -119,6 +120,93 @@ export class OrdersService {
     });
 
     return order;
+  }
+
+  async update(orderId: string, dto: UpdateOrderDto, user: AuthUser) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { lines: true },
+    });
+
+    if (!order) throw new NotFoundException('Pedido não encontrado');
+    if (order.buyerId !== user.id) throw new ForbiddenException('Acesso negado — este pedido não lhe pertence');
+    if (order.status !== 'draft') throw new BadRequestException('Apenas pedidos em draft podem ser editados');
+
+    const companyId = user.companyId;
+    if (!companyId) throw new BadRequestException('A sua conta não está associada a nenhuma empresa');
+
+    const company = await this.prisma.company.findUnique({ where: { id: companyId } });
+    if (!company || company.licenseStatus !== 'active') {
+      throw new BadRequestException(`A empresa não tem licença activa`);
+    }
+
+    // Resolver novas linhas (mesma lógica do create)
+    const today = new Date();
+    const resolvedLines: { productId: string; priceProposalId: string; qty: number; unitPrice: number }[] = [];
+
+    for (const line of dto.lines) {
+      const product = await this.prisma.product.findUnique({ where: { id: line.productId } });
+      if (!product) throw new NotFoundException(`Produto com ID "${line.productId}" não encontrado`);
+      if (product.status !== 'published_official') {
+        throw new BadRequestException(`O produto "${product.name}" não está disponível (estado: ${product.status})`);
+      }
+
+      const proposal = await this.prisma.priceProposal.findFirst({
+        where: {
+          productId: line.productId,
+          status:    'approved',
+          AND: [
+            { OR: [{ validFrom: null }, { validFrom: { lte: today } }] },
+            { OR: [{ validTo: null },   { validTo:   { gte: today } }] },
+          ],
+        },
+        orderBy: { approvedAt: 'desc' },
+      });
+
+      if (!proposal?.snapshot) {
+        throw new BadRequestException(`O produto "${product.name}" não tem proposta de preço aprovada e vigente`);
+      }
+
+      const snapshot = proposal.snapshot as Record<string, any>;
+      resolvedLines.push({
+        productId:       line.productId,
+        priceProposalId: proposal.id,
+        qty:             line.qty,
+        unitPrice:       snapshot['approvedPriceUsd'] as number,
+      });
+    }
+
+    // Apagar linhas antigas e criar novas numa transacção
+    const linesCd = await Promise.all(resolvedLines.map(() => this.codeGen.generate('order_lines')));
+
+    await this.prisma.$transaction([
+      this.prisma.orderLine.deleteMany({ where: { orderId } }),
+      this.prisma.orderLine.createMany({
+        data: resolvedLines.map((l, i) => ({
+          cd:              linesCd[i],
+          orderId,
+          productId:       l.productId,
+          priceProposalId: l.priceProposalId,
+          qty:             l.qty,
+          unitPrice:       l.unitPrice,
+        })),
+      }),
+    ]);
+
+    await this.audit.log({
+      userId: user.id, role: user.role,
+      action: 'UPDATE_ORDER',
+      entity: 'order', entityId: orderId,
+      before: { lines: order.lines.length },
+      after:  { lines: resolvedLines.length },
+    });
+
+    return this.prisma.order.findUnique({
+      where:   { id: orderId },
+      include: {
+        lines: { include: { product: { select: { id: true, name: true, category: true } } } },
+      },
+    });
   }
 
   async findAll(pagination: PaginationDto): Promise<PaginatedResult<any>> {

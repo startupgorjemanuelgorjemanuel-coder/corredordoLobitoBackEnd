@@ -12,6 +12,7 @@ import type { AuthUser } from '../../common/types/auth-user.type';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { RejectProductDto } from './dto/reject-product.dto';
+import { StaffValidateProductDto } from './dto/staff-validate-product.dto';
 
 @Injectable()
 export class ProductsService {
@@ -110,11 +111,59 @@ export class ProductsService {
     return updated;
   }
 
-  async approvePublication(id: string, user: AuthUser) {
+  async staffValidateTechnical(id: string, dto: StaffValidateProductDto, user: AuthUser) {
     const product = await this.findOrFail(id);
 
     if (product.status !== 'pending_review') {
-      throw new BadRequestException('Apenas produtos em pending_review podem ser publicados');
+      throw new BadRequestException(
+        `Apenas produtos em pending_review podem ser validados pelo STAFF (estado actual: ${product.status})`,
+      );
+    }
+
+    const newStatus = dto.valid ? 'staff_validated' : 'pending_review';
+
+    const updated = await this.prisma.product.update({
+      where: { id },
+      data:  { status: newStatus as any },
+    });
+
+    await this.audit.log({
+      userId: user.id, role: user.role,
+      action: dto.valid ? 'STAFF_VALIDATE_PRODUCT_OK' : 'STAFF_VALIDATE_PRODUCT_FAIL',
+      entity: 'product', entityId: id,
+      before: { status: 'pending_review' },
+      after:  { status: newStatus, notes: dto.notes ?? null },
+    });
+
+    return updated;
+  }
+
+  async staffForwardProductToState(id: string, user: AuthUser) {
+    const product = await this.findOrFail(id);
+
+    if (product.status !== 'staff_validated') {
+      throw new BadRequestException(
+        'O produto deve estar em staff_validated para ser encaminhado ao STATE. Execute validate-technical primeiro.',
+      );
+    }
+
+    await this.audit.log({
+      userId: user.id, role: user.role,
+      action: 'STAFF_FORWARD_PRODUCT_TO_STATE',
+      entity: 'product', entityId: id,
+      after:  { status: 'staff_validated', forwardedBy: user.id, note: 'STAFF encaminhou produto ao STATE para aprovação de publicação' },
+    });
+
+    return { ...product, message: 'Produto encaminhado ao STATE para aprovação de publicação.' };
+  }
+
+  async approvePublication(id: string, user: AuthUser) {
+    const product = await this.findOrFail(id);
+
+    if (!['pending_review', 'staff_validated'].includes(product.status)) {
+      throw new BadRequestException(
+        `Apenas produtos em pending_review ou staff_validated podem ser publicados (estado actual: ${product.status})`,
+      );
     }
 
     const updated = await this.prisma.product.update({
@@ -136,8 +185,10 @@ export class ProductsService {
   async rejectPublication(id: string, dto: RejectProductDto, user: AuthUser) {
     const product = await this.findOrFail(id);
 
-    if (product.status !== 'pending_review') {
-      throw new BadRequestException('Apenas produtos em pending_review podem ser rejeitados');
+    if (!['pending_review', 'staff_validated'].includes(product.status)) {
+      throw new BadRequestException(
+        `Apenas produtos em pending_review ou staff_validated podem ser rejeitados (estado actual: ${product.status})`,
+      );
     }
 
     const updated = await this.prisma.product.update({

@@ -10,6 +10,7 @@ import { PaginationDto } from '../../common/dto/pagination.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { RejectProductDto } from './dto/reject-product.dto';
+import { StaffValidateProductDto } from './dto/staff-validate-product.dto';
 
 @ApiTags('Products')
 @ApiBearerAuth('JWT')
@@ -59,6 +60,26 @@ export class ProductsController {
   @Roles('producer')
   requestPublication(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.productsService.requestPublication(id, user);
+  }
+
+  @Post(':id/validate-technical')
+  @HttpCode(200)
+  @UseGuards(RolesGuard)
+  @Roles('staff')
+  staffValidateTechnical(
+    @Param('id') id: string,
+    @Body() dto: StaffValidateProductDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.productsService.staffValidateTechnical(id, dto, user);
+  }
+
+  @Post(':id/forward-product-to-state')
+  @HttpCode(200)
+  @UseGuards(RolesGuard)
+  @Roles('staff')
+  staffForwardProductToState(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.productsService.staffForwardProductToState(id, user);
   }
 
   @Post(':id/approve-publication')

@@ -19,7 +19,8 @@ async function main() {
   const hash = await bcrypt.hash(PASSWORD, 10);
 
   const usersData = [
-    { email: 'state@lobito.gov',      role: 'state',      fullName: 'State Authority'      },
+    { email: 'admin@lobito.gov',       role: 'admin',      fullName: 'System Administrator'  },
+    { email: 'state@lobito.gov',       role: 'state',      fullName: 'State Authority'       },
     { email: 'staff@lobito.gov',       role: 'staff',      fullName: 'Staff Officer'         },
     { email: 'specialist@lobito.gov',  role: 'specialist', fullName: 'Price Specialist'      },
     { email: 'analyst@lobito.gov',     role: 'analyst',    fullName: 'Data Analyst'          },

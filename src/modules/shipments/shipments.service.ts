@@ -59,18 +59,58 @@ export class ShipmentsService {
     return shipment;
   }
 
-  async findAll(pagination: PaginationDto): Promise<PaginatedResult<any>> {
+  async findAll(pagination: PaginationDto, statusFilter?: string): Promise<PaginatedResult<any>> {
     const page  = pagination.page  ?? 1;
     const limit = pagination.limit ?? 20;
     const skip  = (page - 1) * limit;
 
+    const where = statusFilter ? { status: statusFilter as any } : {};
     const include = { operator: { select: { id: true, fullName: true } }, customsDispatch: true };
     const [data, total] = await this.prisma.$transaction([
-      this.prisma.shipment.findMany({ skip, take: limit, include, orderBy: { createdAt: 'desc' } }),
-      this.prisma.shipment.count(),
+      this.prisma.shipment.findMany({ where, skip, take: limit, include, orderBy: { createdAt: 'desc' } }),
+      this.prisma.shipment.count({ where }),
     ]);
 
     return paginate(data, total, page, limit);
+  }
+
+  async findMyShipments(user: AuthUser, pagination: PaginationDto): Promise<PaginatedResult<any>> {
+    const page  = pagination.page  ?? 1;
+    const limit = pagination.limit ?? 20;
+    const skip  = (page - 1) * limit;
+
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.shipment.findMany({
+        where:   { operatorId: user.id },
+        skip, take: limit,
+        include: { customsDispatch: true, order: { select: { id: true, cd: true, status: true } } },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.shipment.count({ where: { operatorId: user.id } }),
+    ]);
+
+    return paginate(data, total, page, limit);
+  }
+
+  async findByOrderId(orderId: string, user: AuthUser) {
+    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new NotFoundException('Pedido não encontrado');
+
+    // BUYER só pode ver o embarque do seu próprio pedido
+    if (user.role === 'buyer' && order.buyerId !== user.id) {
+      throw new ForbiddenException('Acesso negado — este pedido não lhe pertence');
+    }
+
+    const shipment = await this.prisma.shipment.findFirst({
+      where:   { orderId },
+      include: {
+        operator:       { select: { id: true, fullName: true } },
+        customsDispatch: true,
+      },
+    });
+
+    if (!shipment) throw new NotFoundException('Este pedido ainda não tem embarque associado');
+    return shipment;
   }
 
   async findOne(id: string) {

@@ -9,6 +9,7 @@ import { CodeGeneratorService } from '../../common/services/code-generator.servi
 import { paginate, PaginationDto, PaginatedResult } from '../../common/dto/pagination.dto';
 import { AuthUser } from '../../common/types/auth-user.type';
 import { CreateCompanyDto } from './dto/create-company.dto';
+import { UpdateCompanyDto } from './dto/update-company.dto';
 import { ValidateDocsDto } from './dto/validate-docs.dto';
 import { ApproveLicenseDto } from './dto/approve-license.dto';
 import { RejectOrSuspendDto } from './dto/reject-or-suspend.dto';
@@ -43,6 +44,19 @@ export class CompaniesService {
 
   async findOne(id: string) {
     return this.findOrFail(id);
+  }
+
+  async update(id: string, dto: UpdateCompanyDto) {
+    await this.findOrFail(id);
+    return this.prisma.company.update({
+      where: { id },
+      data: {
+        ...(dto.name         !== undefined ? { name:         dto.name         } : {}),
+        ...(dto.contactEmail !== undefined ? { contactEmail: dto.contactEmail } : {}),
+        ...(dto.contactPhone !== undefined ? { contactPhone: dto.contactPhone } : {}),
+        ...(dto.address      !== undefined ? { address:      dto.address      } : {}),
+      },
+    });
   }
 
   async validateDocumentation(id: string, dto: ValidateDocsDto, user: AuthUser) {

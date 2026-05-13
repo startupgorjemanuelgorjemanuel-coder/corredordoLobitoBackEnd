@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Body, Param, Query, UseGuards, HttpCode,
+  Controller, Get, Post, Put, Body, Param, Query, UseGuards, HttpCode,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { CompaniesService } from './companies.service';
@@ -9,6 +9,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { AuthUser } from '../../common/types/auth-user.type';
 import { CreateCompanyDto } from './dto/create-company.dto';
+import { UpdateCompanyDto } from './dto/update-company.dto';
 import { ValidateDocsDto } from './dto/validate-docs.dto';
 import { ApproveLicenseDto } from './dto/approve-license.dto';
 import { RejectOrSuspendDto } from './dto/reject-or-suspend.dto';
@@ -37,6 +38,12 @@ export class CompaniesController {
   @UseGuards(JwtAuthGuard)
   findOne(@Param('id') id: string) {
     return this.companiesService.findOne(id);
+  }
+
+  @Put(':id')
+  @UseGuards(JwtAuthGuard)
+  update(@Param('id') id: string, @Body() dto: UpdateCompanyDto) {
+    return this.companiesService.update(id, dto);
   }
 
   @Post(':id/validate-documentation')

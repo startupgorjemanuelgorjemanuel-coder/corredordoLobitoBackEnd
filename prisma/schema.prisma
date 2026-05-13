@@ -48,6 +48,7 @@ enum CompanyCountry {
 enum ProductStatus {
   draft
   pending_review
+  staff_validated
   published_official
   suspended
   rejected
