@@ -1,4 +1,4 @@
-import { IsOptional, IsString, MinLength } from 'class-validator';
+import { IsObject, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class UpdateProductDto {
   @IsString()
@@ -14,4 +14,8 @@ export class UpdateProductDto {
   @MinLength(2)
   @IsOptional()
   category?: string;
+
+  @IsObject()
+  @IsOptional()
+  metadata?: object;
 }

@@ -5,6 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { CodeGeneratorService } from '../../common/services/code-generator.service';
 import { paginate, PaginationDto, PaginatedResult } from '../../common/dto/pagination.dto';
@@ -42,6 +43,7 @@ export class ProductsService {
         companyId:   dto.companyId,
         producerId:  user.id,
         status:      'draft',
+        metadata:    dto.metadata ?? Prisma.DbNull,
       },
     });
   }
@@ -89,7 +91,15 @@ export class ProductsService {
       throw new BadRequestException('Apenas produtos em draft podem ser editados');
     }
 
-    return this.prisma.product.update({ where: { id }, data: dto });
+    return this.prisma.product.update({
+      where: { id },
+      data: {
+        ...(dto.name        !== undefined ? { name:        dto.name }        : {}),
+        ...(dto.description !== undefined ? { description: dto.description } : {}),
+        ...(dto.category    !== undefined ? { category:    dto.category }    : {}),
+        ...(dto.metadata    !== undefined ? { metadata:    dto.metadata }    : {}),
+      },
+    });
   }
 
   async requestPublication(id: string, user: AuthUser) {

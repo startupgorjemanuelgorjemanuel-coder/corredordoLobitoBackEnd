@@ -1,18 +1,57 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
+
+// Domínios permitidos — adicionar aqui os domínios do frontend em produção
+const ALLOWED_ORIGINS = [
+  'https://app.corredor-lobito.gov',
+  'https://dashboard.corredor-lobito.gov',
+  'https://corredor-lobito.gov',
+  // Desenvolvimento local
+  'http://localhost:4200',
+  'http://localhost:3001',
+  'http://localhost:3000',
+];
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // ── Segurança: Helmet (inclui HSTS) ──────────────────────────────────────
+  app.use(helmet({
+    hsts: {
+      maxAge:            31536000,  // 1 ano
+      includeSubDomains: true,
+      preload:           true,
+    },
+    contentSecurityPolicy: false, // desactivar CSP para não interferir com Swagger UI
+  }));
+
+  // ── Validação global ──────────────────────────────────────────────────────
   app.useGlobalPipes(new ValidationPipe({
     whitelist:            true,
     forbidNonWhitelisted: true,
     transform:            true,
   }));
 
-  app.enableCors({ origin: '*' }); // restringir em produção
+  // ── CORS restrito ─────────────────────────────────────────────────────────
+  const isProd = process.env.NODE_ENV === 'production';
+  app.enableCors({
+    origin: isProd
+      ? (origin, cb) => {
+          if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+            cb(null, true);
+          } else {
+            cb(new Error(`Origem não permitida: ${origin}`), false);
+          }
+        }
+      : true, // desenvolvimento: aceitar todas as origens
+    methods:          ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders:   ['Content-Type', 'Authorization', 'X-Requested-With'],
+    credentials:      true,
+    maxAge:           86400, // 24h — cache das preflight OPTIONS
+  });
 
   // ── Swagger / OpenAPI ─────────────────────────────────────────────────
   const config = new DocumentBuilder()

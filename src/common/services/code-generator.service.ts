@@ -13,7 +13,9 @@ export type EntitySequence =
   | 'shipments'
   | 'customs_dispatches'
   | 'reports'
-  | 'audit_logs';
+  | 'audit_logs'
+  | 'support_tickets'
+  | 'compliance_alerts';
 
 const CD_PREFIX: Record<EntitySequence, string> = {
   users:              'USR-',
@@ -28,6 +30,8 @@ const CD_PREFIX: Record<EntitySequence, string> = {
   customs_dispatches: 'DSP-',
   reports:            'RPT-',
   audit_logs:         'LOG-',
+  support_tickets:    'TKT-',
+  compliance_alerts:  'ALT-',
 };
 
 @Injectable()

@@ -9,13 +9,18 @@ export class CreateUserDto {
 
   @ApiProperty({ example: 'Lobito@Dev2024!', minLength: 8 })
   @IsString()
-  @MinLength(8)
+  @MinLength(12, { message: 'A senha deve ter pelo menos 12 caracteres.' })
   password: string;
 
   @ApiProperty({ example: 'Nome Completo' })
   @IsString()
   @MinLength(2)
   fullName: string;
+
+  @ApiPropertyOptional({ example: '+244 923 000 001' })
+  @IsString()
+  @IsOptional()
+  phone?: string;
 
   @ApiProperty({ enum: Role, example: Role.STAFF })
   @IsEnum(Role)

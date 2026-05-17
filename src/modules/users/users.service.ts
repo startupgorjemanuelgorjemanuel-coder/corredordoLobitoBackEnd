@@ -18,8 +18,8 @@ import { BlockUserDto } from './dto/block-user.dto';
 
 const SAFE_SELECT = {
   id: true, cd: true, email: true, fullName: true,
-  role: true, status: true, companyId: true, lastLoginAt: true,
-  createdAt: true, updatedAt: true,
+  phone: true, role: true, status: true, companyId: true,
+  lastLoginAt: true, createdAt: true, updatedAt: true,
 };
 
 @Injectable()
@@ -57,7 +57,15 @@ export class UsersService {
     const passwordHash = await bcrypt.hash(dto.password, 10);
 
     const user = await this.prisma.user.create({
-      data: { cd, email: dto.email, passwordHash, fullName: dto.fullName, role: dto.role as any, companyId: dto.companyId ?? null },
+      data: {
+        cd,
+        email:        dto.email,
+        passwordHash,
+        fullName:     dto.fullName,
+        phone:        dto.phone ?? null,
+        role:         dto.role as any,
+        companyId:    dto.companyId ?? null,
+      },
       select: SAFE_SELECT,
     });
 
@@ -78,6 +86,7 @@ export class UsersService {
       where: { id },
       data: {
         ...(dto.fullName  !== undefined ? { fullName:  dto.fullName }  : {}),
+        ...(dto.phone     !== undefined ? { phone:     dto.phone }     : {}),
         ...(dto.companyId !== undefined ? { companyId: dto.companyId } : {}),
       },
       select: SAFE_SELECT,

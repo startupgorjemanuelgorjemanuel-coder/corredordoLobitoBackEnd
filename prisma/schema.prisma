@@ -45,6 +45,14 @@ enum CompanyCountry {
   mozambique
 }
 
+enum CompanyType {
+  importer
+  exporter
+  mixed
+  producer
+  logistics
+}
+
 enum ProductStatus {
   draft
   pending_review
@@ -124,17 +132,23 @@ enum TargetAudience {
 // ─── MODELS ──────────────────────────────────────────────────────────────────
 
 model User {
-  id           String     @id @default(uuid())
-  cd           String     @unique
-  email        String     @unique
-  passwordHash String
-  fullName     String
-  role         Role
-  status       UserStatus @default(active)
-  companyId    String?
-  lastLoginAt  DateTime?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id                  String     @id @default(uuid())
+  cd                  String     @unique
+  email               String     @unique
+  passwordHash        String
+  fullName            String
+  phone               String?
+  role                Role
+  status              UserStatus @default(active)
+  companyId           String?
+  lastLoginAt         DateTime?
+  twoFactorEnabled    Boolean    @default(false)
+  twoFactorSecret     String?
+  twoFactorVerifiedAt DateTime?
+  passwordChangedAt   DateTime?
+  forcePasswordChange Boolean    @default(false)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
 
   company           Company?          @relation(fields: [companyId], references: [id])
   producedProducts  Product[]         @relation("ProducerProducts")
@@ -144,28 +158,33 @@ model User {
   operatorShipments Shipment[]        @relation("OperatorShipments")
   customsDispatches CustomsDispatch[] @relation("CustomsDispatches")
   reports           Report[]          @relation("ReportAuthor")
+  supportTickets    SupportTicket[]   @relation("TicketOwner")
+  resolvedTickets   SupportTicket[]   @relation("TicketResolver")
 
   @@map("users")
 }
 
 model Company {
-  id                 String         @id @default(uuid())
-  cd                 String         @unique
-  name               String
-  country            CompanyCountry
-  contactEmail       String
-  contactPhone       String?
-  address            String?
-  licenseStatus      LicenseStatus  @default(pending)
-  licenseNumber      String?
-  licenseExpiresAt   DateTime?
-  rejectionReason    String?
-  suspensionReason   String?
-  validationNotes    String?
-  approvedByStateId  String?
-  validatedByStaffId String?
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
+  id                      String         @id @default(uuid())
+  cd                      String         @unique
+  name                    String
+  country                 CompanyCountry
+  companyType             CompanyType?
+  contactEmail            String
+  contactPhone            String?
+  address                 String?
+  licenseStatus           LicenseStatus  @default(pending)
+  licenseNumber           String?
+  licenseExpiresAt        DateTime?
+  rejectionReason         String?
+  suspensionReason        String?
+  validationNotes         String?
+  documentationValidation Json?
+  verifiedByState         Boolean        @default(false)
+  approvedByStateId       String?
+  validatedByStaffId      String?
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
 
   users    User[]
   products Product[]
@@ -185,6 +204,7 @@ model Product {
   status          ProductStatus @default(draft)
   rejectionReason String?
   publishedAt     DateTime?
+  metadata        Json?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
@@ -390,4 +410,47 @@ model AuditLog {
   @@index([entity, entityId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ─── SUPPORT TICKETS ─────────────────────────────────────────────────────────
+
+enum TicketStatus {
+  open
+  in_progress
+  resolved
+  escalated
+  closed
+}
+
+enum TicketType {
+  technical
+  licensing
+  billing
+  compliance
+  other
+}
+
+model SupportTicket {
+  id                String        @id @default(uuid())
+  cd                String        @unique
+  userId            String
+  type              TicketType    @default(other)
+  status            TicketStatus  @default(open)
+  subject           String
+  content           Json?
+  resolution        String?       @db.Text
+  resolvedByStaffId String?
+  escalatedToState  Boolean       @default(false)
+  escalatedAt       DateTime?
+  resolvedAt        DateTime?
+  closedAt          DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  user            User  @relation("TicketOwner",   fields: [userId],            references: [id])
+  resolvedByStaff User? @relation("TicketResolver", fields: [resolvedByStaffId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@map("support_tickets")
 }

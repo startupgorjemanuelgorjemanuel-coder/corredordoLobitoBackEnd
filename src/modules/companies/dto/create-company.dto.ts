@@ -10,6 +10,14 @@ enum CompanyCountry {
   mozambique = 'mozambique',
 }
 
+export enum CompanyType {
+  importer  = 'importer',
+  exporter  = 'exporter',
+  mixed     = 'mixed',
+  producer  = 'producer',
+  logistics = 'logistics',
+}
+
 export class CreateCompanyDto {
   @ApiProperty({ example: 'Lobito Trade Lda' })
   @IsString()
@@ -19,6 +27,15 @@ export class CreateCompanyDto {
   @ApiProperty({ enum: CompanyCountry, example: 'angola' })
   @IsEnum(CompanyCountry)
   country: CompanyCountry;
+
+  @ApiPropertyOptional({
+    enum: CompanyType,
+    example: 'importer',
+    description: 'Tipo de empresa: importador, exportador, misto, produtor ou logística',
+  })
+  @IsEnum(CompanyType)
+  @IsOptional()
+  companyType?: CompanyType;
 
   @ApiProperty({ example: 'geral@lobitotrade.ao' })
   @IsEmail()

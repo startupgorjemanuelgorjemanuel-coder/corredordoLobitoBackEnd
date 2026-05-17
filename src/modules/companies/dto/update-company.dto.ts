@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import { CompanyType } from './create-company.dto';
 
 export class UpdateCompanyDto {
   @ApiPropertyOptional({ example: 'Empresa Actualizada Lda' })
@@ -7,6 +8,11 @@ export class UpdateCompanyDto {
   @MinLength(2)
   @IsOptional()
   name?: string;
+
+  @ApiPropertyOptional({ enum: CompanyType, example: 'exporter' })
+  @IsEnum(CompanyType)
+  @IsOptional()
+  companyType?: CompanyType;
 
   @ApiPropertyOptional({ example: 'novo@empresa.co.ao' })
   @IsEmail()

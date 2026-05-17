@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, MinLength } from 'class-validator';
+import { IsObject, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class CreateProductDto {
   @ApiProperty({ example: 'Cimento Portland 50kg' })
@@ -20,4 +20,12 @@ export class CreateProductDto {
   @ApiProperty({ example: 'uuid-da-empresa' })
   @IsString()
   companyId: string;
+
+  @ApiPropertyOptional({
+    example: { norma: 'ISO 9001', peso: '50kg', resistencia: 'C30', certificado: 'IANORQ-2026' },
+    description: 'Especificações técnicas adicionais do produto em formato JSON livre',
+  })
+  @IsObject()
+  @IsOptional()
+  metadata?: object;
 }

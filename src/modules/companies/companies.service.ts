@@ -22,11 +22,39 @@ export class CompaniesService {
     private codeGen:  CodeGeneratorService,
   ) {}
 
-  async create(dto: CreateCompanyDto) {
+  async create(dto: CreateCompanyDto, user: AuthUser) {
     const cd = await this.codeGen.generate('companies');
-    return this.prisma.company.create({
-      data: { ...dto, cd, licenseStatus: 'pending' },
+
+    const company = await this.prisma.company.create({
+      data: {
+        cd,
+        name:         dto.name,
+        country:      dto.country as any,
+        companyType:  dto.companyType as any ?? null,
+        contactEmail: dto.contactEmail,
+        contactPhone: dto.contactPhone ?? null,
+        address:      dto.address ?? null,
+        licenseStatus: 'pending',
+      },
     });
+
+    // Auto-link: só roles de negócio sem empresa ainda (nunca roles governamentais)
+    const BUSINESS_ROLES = ['producer', 'buyer', 'operator', 'company'];
+    if (!user.companyId && BUSINESS_ROLES.includes(user.role)) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data:  { companyId: company.id },
+      });
+    }
+
+    await this.audit.log({
+      userId: user.id, role: user.role,
+      action: 'CREATE_COMPANY',
+      entity: 'company', entityId: company.id,
+      after:  { name: company.name, country: company.country, licenseStatus: 'pending' },
+    });
+
+    return company;
   }
 
   async findAll(pagination: PaginationDto): Promise<PaginatedResult<any>> {
@@ -51,10 +79,11 @@ export class CompaniesService {
     return this.prisma.company.update({
       where: { id },
       data: {
-        ...(dto.name         !== undefined ? { name:         dto.name         } : {}),
-        ...(dto.contactEmail !== undefined ? { contactEmail: dto.contactEmail } : {}),
-        ...(dto.contactPhone !== undefined ? { contactPhone: dto.contactPhone } : {}),
-        ...(dto.address      !== undefined ? { address:      dto.address      } : {}),
+        ...(dto.name         !== undefined ? { name:         dto.name             } : {}),
+        ...(dto.companyType  !== undefined ? { companyType:  dto.companyType as any } : {}),
+        ...(dto.contactEmail !== undefined ? { contactEmail: dto.contactEmail     } : {}),
+        ...(dto.contactPhone !== undefined ? { contactPhone: dto.contactPhone     } : {}),
+        ...(dto.address      !== undefined ? { address:      dto.address          } : {}),
       },
     });
   }
@@ -66,12 +95,20 @@ export class CompaniesService {
       throw new BadRequestException('Empresa não está em estado validável');
     }
 
+    const documentationValidation = {
+      validatedAt:  new Date().toISOString(),
+      validatedBy:  user.id,
+      result:       dto.valid ? 'approved' : 'rejected',
+      notes:        dto.notes ?? null,
+    };
+
     const updated = await this.prisma.company.update({
       where: { id },
       data: {
-        licenseStatus:      dto.valid ? 'under_review' : 'pending',
-        validationNotes:    dto.notes ?? null,
-        validatedByStaffId: user.id,
+        licenseStatus:           dto.valid ? 'under_review' : 'pending',
+        validationNotes:         dto.notes ?? null,
+        documentationValidation,
+        validatedByStaffId:      user.id,
       },
     });
 
@@ -119,6 +156,7 @@ export class CompaniesService {
         licenseNumber:    dto.licenseNumber,
         licenseExpiresAt: new Date(dto.licenseExpiresAt),
         approvedByStateId: user.id,
+        verifiedByState:  true,
       },
     });
 
