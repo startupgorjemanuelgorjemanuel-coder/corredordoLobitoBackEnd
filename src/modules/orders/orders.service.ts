@@ -340,8 +340,9 @@ export class OrdersService {
     // Gerar Fatura e Recibo PDF (best-effort)
     try {
       const railwayUrl = this.config.get<string>('RAILWAY_STATIC_URL');
-      const appUrl = this.config.get<string>('APP_URL')
-        ?? (railwayUrl ? `https://${railwayUrl}` : 'http://localhost:3000');
+      const appUrl = (this.config.get<string>('APP_URL')
+        ?? (railwayUrl ? `https://${railwayUrl}` : 'http://localhost:3000'))
+        .replace(/\/$/, '');
 
       const buyerCompany  = order.company;
       const producerLines = order.lines.map(l => ({
@@ -385,7 +386,7 @@ export class OrdersService {
 
       await this.prisma.transaction.update({
         where: { id: transaction.id },
-        data:  { invoiceUrl: inv.storageUrl, receiptUrl: rec.storageUrl },
+        data:  { invoiceUrl: inv.storageUrl, receiptUrl: rec.storageUrl } as any,
       });
     } catch (_) {
       // PDF é best-effort — não bloqueia o pagamento
@@ -486,7 +487,7 @@ export class OrdersService {
     if (order.buyerId !== user.id && !['state','staff','compliance','specialist','analyst'].includes(user.role)) {
       throw new ForbiddenException('Acesso negado');
     }
-    const trx = await this.prisma.transaction.findUnique({ where: { orderId } });
+    const trx = await this.prisma.transaction.findUnique({ where: { orderId } }) as any;
     if (!trx?.invoiceUrl) throw new NotFoundException('Fatura ainda não foi gerada. O pedido deve estar pago.');
     const path = trx.invoiceUrl.replace('https://paydpuwjjuezmjfzxmvi.supabase.co/storage/v1/object/public/', '');
     const [bucket, ...rest] = path.split('/');
@@ -499,7 +500,7 @@ export class OrdersService {
     if (order.buyerId !== user.id && !['state','staff','compliance','specialist','analyst'].includes(user.role)) {
       throw new ForbiddenException('Acesso negado');
     }
-    const trx = await this.prisma.transaction.findUnique({ where: { orderId } });
+    const trx = await this.prisma.transaction.findUnique({ where: { orderId } }) as any;
     if (!trx?.receiptUrl) throw new NotFoundException('Recibo ainda não foi gerado. O pedido deve estar pago.');
     const path = trx.receiptUrl.replace('https://paydpuwjjuezmjfzxmvi.supabase.co/storage/v1/object/public/', '');
     const [bucket, ...rest] = path.split('/');
