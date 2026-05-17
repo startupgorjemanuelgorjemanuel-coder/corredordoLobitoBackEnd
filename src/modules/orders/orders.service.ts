@@ -339,7 +339,9 @@ export class OrdersService {
 
     // Gerar Fatura e Recibo PDF (best-effort)
     try {
-      const appUrl = this.config.get<string>('APP_URL') ?? 'http://localhost:3000';
+      const railwayUrl = this.config.get<string>('RAILWAY_STATIC_URL');
+      const appUrl = this.config.get<string>('APP_URL')
+        ?? (railwayUrl ? `https://${railwayUrl}` : 'http://localhost:3000');
 
       const buyerCompany  = order.company;
       const producerLines = order.lines.map(l => ({

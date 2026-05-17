@@ -186,7 +186,9 @@ export class CompaniesService {
 
     // Gerar PDF da licença e guardar no Storage
     try {
-      const appUrl = this.config.get<string>('APP_URL') ?? 'http://localhost:3000';
+      const railwayUrl = this.config.get<string>('RAILWAY_STATIC_URL');
+      const appUrl = this.config.get<string>('APP_URL')
+        ?? (railwayUrl ? `https://${railwayUrl}` : 'http://localhost:3000');
       const verifyUrl = `${appUrl}/verify/license/${id}`;
       const pdfBuffer = await this.pdfGen.generateLicense({
         companyName:    updated.name,

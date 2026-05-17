@@ -197,7 +197,9 @@ export class ShipmentsService {
 
     // Gerar PDF do Despacho Aduaneiro (best-effort)
     try {
-      const appUrl   = this.config.get<string>('APP_URL') ?? 'http://localhost:3000';
+      const railwayUrl = this.config.get<string>('RAILWAY_STATIC_URL');
+      const appUrl     = this.config.get<string>('APP_URL')
+        ?? (railwayUrl ? `https://${railwayUrl}` : 'http://localhost:3000');
       const orderCd  = (shipment as any).order?.cd as string | undefined;
       const pdfBuf   = await this.pdfGen.generateDispatch({
         dispatchCd,
