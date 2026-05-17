@@ -22,9 +22,9 @@ export class TransactionsService {
     orderId:  string;
     amount:   number;
     currency: string;
-  }): Promise<void> {
+  }) {
     const cd = await this.codeGen.generate('transactions');
-    await this.prisma.transaction.create({
+    return this.prisma.transaction.create({
       data: {
         cd,
         orderId:  payload.orderId,

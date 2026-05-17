@@ -63,7 +63,13 @@ export class ProductsService {
   }
 
   async findOne(id: string) {
-    return this.findOrFail(id);
+    const product = await this.findOrFail(id);
+    const documents = await this.prisma.document.findMany({
+      where:   { entityType: 'product', entityId: id },
+      orderBy: { createdAt: 'desc' },
+      select:  { id: true, cd: true, type: true, name: true, fileName: true, mimeType: true, sizeBytes: true, status: true, rejectedReason: true, createdAt: true },
+    });
+    return { ...product, documents };
   }
 
   async findMyProducts(user: AuthUser, pagination: PaginationDto): Promise<PaginatedResult<any>> {

@@ -47,9 +47,16 @@ export class ShipmentsController {
 
   @Get(':id')
   @UseGuards(RolesGuard)
-  @Roles('state', 'staff', 'customs', 'operator', 'compliance')
+  @Roles('state', 'staff', 'customs', 'operator', 'compliance', 'buyer')
   findOne(@Param('id') id: string) {
     return this.shipmentsService.findOne(id);
+  }
+
+  @Get(':id/dispatch-pdf')
+  @UseGuards(RolesGuard)
+  @Roles('state', 'staff', 'customs', 'operator', 'compliance', 'buyer')
+  getDispatchPdf(@Param('id') id: string) {
+    return this.shipmentsService.getDispatchPdf(id);
   }
 
   @Post()

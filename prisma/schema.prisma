@@ -160,6 +160,10 @@ model User {
   reports           Report[]          @relation("ReportAuthor")
   supportTickets    SupportTicket[]   @relation("TicketOwner")
   resolvedTickets   SupportTicket[]   @relation("TicketResolver")
+  uploadedDocuments  Document[]         @relation("DocumentUploader")
+  validatedDocuments Document[]        @relation("DocumentValidator")
+  reviewedAlerts     ComplianceAlert[]  @relation("AlertReviewer")
+  resolvedAlerts     ComplianceAlert[]  @relation("AlertResolver")
 
   @@map("users")
 }
@@ -183,6 +187,7 @@ model Company {
   verifiedByState         Boolean        @default(false)
   approvedByStateId       String?
   validatedByStaffId      String?
+  licenseDocumentUrl      String?
   createdAt               DateTime       @default(now())
   updatedAt               DateTime       @updatedAt
 
@@ -205,6 +210,7 @@ model Product {
   rejectionReason String?
   publishedAt     DateTime?
   metadata        Json?
+  certificateUrl  String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
@@ -321,6 +327,8 @@ model Transaction {
   blockedReason String?
   cancelledAt   DateTime?
   metadata      Json?
+  invoiceUrl    String?
+  receiptUrl    String?
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 
@@ -359,9 +367,10 @@ model CustomsDispatch {
   shipmentId      String        @unique
   dispatcherId    String
   status          CustomsStatus @default(pending)
-  notes           String?
-  rejectionReason String?
-  validatedAt     DateTime?
+  notes                String?
+  rejectionReason      String?
+  validatedAt          DateTime?
+  dispatchDocumentUrl  String?
 
   shipment   Shipment @relation(fields: [shipmentId], references: [id])
   dispatcher User     @relation("CustomsDispatches", fields: [dispatcherId], references: [id])
@@ -453,4 +462,122 @@ model SupportTicket {
   @@index([userId])
   @@index([status])
   @@map("support_tickets")
+}
+
+model Document {
+  id             String               @id @default(uuid())
+  cd             String               @unique
+  entityType     DocumentEntityType
+  entityId       String
+  type           DocumentType         @default(outro)
+  name           String
+  fileName       String
+  mimeType       String
+  sizeBytes      Int
+  storageUrl     String
+  storagePath    String
+  uploadedById   String
+  status         DocumentStatus       @default(pending)
+  rejectedReason String?
+  validatedById  String?
+  validatedAt    DateTime?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  uploadedBy  User  @relation("DocumentUploader",  fields: [uploadedById],  references: [id])
+  validatedBy User? @relation("DocumentValidator", fields: [validatedById], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([status])
+  @@map("documents")
+}
+
+// ─── DOCUMENT ENUMS ──────────────────────────────────────────────────────────
+
+enum DocumentEntityType {
+  company
+  product
+  shipment
+  order
+  report
+}
+
+enum DocumentType {
+  certidao_comercial
+  certidao_fiscal
+  alvara_actividade
+  identificacao_representante
+  comprovativo_morada
+  estatutos
+  licenca_importacao_exportacao
+  ficha_tecnica_produto
+  certificado_qualidade
+  certificado_origem_produto
+  fatura_comercial_embarque
+  manifesto_carga
+  certificado_origem_embarque
+  guia_transporte
+  apolice_seguro
+  declaracao_aduaneira
+  outro
+}
+
+enum DocumentStatus {
+  pending
+  accepted
+  rejected
+}
+
+// ─── COMPLIANCE ALERTS ───────────────────────────────────────────────────────
+
+model ComplianceAlert {
+  id          String        @id @default(uuid())
+  cd          String        @unique
+  alertType   AlertType
+  severity    AlertSeverity
+  status      AlertStatus   @default(open)
+  entityId    String
+  entityType  String
+  detectedBy  String        @default("system")
+  reviewedBy  String?
+  resolvedBy  String?
+  resolvedAt  DateTime?
+  metadata    Json?
+  notes       String?       @db.Text
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  reviewer    User?         @relation("AlertReviewer", fields: [reviewedBy], references: [id])
+  resolver    User?         @relation("AlertResolver", fields: [resolvedBy], references: [id])
+
+  @@index([status])
+  @@index([alertType])
+  @@index([severity])
+  @@index([entityType, entityId])
+  @@map("compliance_alerts")
+}
+
+enum AlertType {
+  high_value_transaction
+  recently_licensed_company
+  fiscal_discrepancy
+  suspicious_order_pattern
+  customs_evasion_attempt
+  repeated_login_failures
+  blocked_user_activity
+  price_manipulation_attempt
+}
+
+enum AlertSeverity {
+  low
+  medium
+  high
+  critical
+}
+
+enum AlertStatus {
+  open
+  under_review
+  resolved
+  dismissed
 }

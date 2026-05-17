@@ -37,6 +37,16 @@ export class OrdersController {
     return this.ordersService.findOne(id, user);
   }
 
+  @Get(':id/invoice-pdf')
+  getInvoicePdf(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.ordersService.getInvoicePdf(id, user);
+  }
+
+  @Get(':id/receipt-pdf')
+  getReceiptPdf(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.ordersService.getReceiptPdf(id, user);
+  }
+
   @Post()
   @UseGuards(RolesGuard)
   @Roles('buyer')

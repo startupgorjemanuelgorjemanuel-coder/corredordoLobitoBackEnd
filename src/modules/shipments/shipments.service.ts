@@ -7,6 +7,9 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CodeGeneratorService } from '../../common/services/code-generator.service';
+import { StorageService } from '../../common/services/storage.service';
+import { PdfGeneratorService } from '../../common/services/pdf-generator.service';
+import { ConfigService } from '@nestjs/config';
 import { paginate, PaginationDto, PaginatedResult } from '../../common/dto/pagination.dto';
 import type { AuthUser } from '../../common/types/auth-user.type';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
@@ -19,6 +22,9 @@ export class ShipmentsService {
     private prisma:  PrismaService,
     private audit:   AuditService,
     private codeGen: CodeGeneratorService,
+    private storage: StorageService,
+    private pdfGen:  PdfGeneratorService,
+    private config:  ConfigService,
   ) {}
 
   async create(dto: CreateShipmentDto, user: AuthUser) {
@@ -117,12 +123,29 @@ export class ShipmentsService {
     const shipment = await this.prisma.shipment.findUnique({
       where:   { id },
       include: {
-        operator:       { select: { id: true, fullName: true } },
+        operator:        { select: { id: true, fullName: true } },
         customsDispatch: true,
       },
     });
     if (!shipment) throw new NotFoundException('Embarque não encontrado');
-    return shipment;
+    const documents = await this.prisma.document.findMany({
+      where:   { entityType: 'shipment', entityId: id },
+      orderBy: { createdAt: 'desc' },
+      select:  { id: true, cd: true, type: true, name: true, fileName: true, mimeType: true, sizeBytes: true, status: true, rejectedReason: true, createdAt: true },
+    });
+    return { ...shipment, documents };
+  }
+
+  async getDispatchPdf(id: string) {
+    const dispatch = await this.prisma.customsDispatch.findUnique({ where: { shipmentId: id } });
+    if (!dispatch?.dispatchDocumentUrl) {
+      throw new NotFoundException('PDF do despacho ainda não foi gerado. O embarque deve estar aprovado pela alfândega.');
+    }
+    const path = dispatch.dispatchDocumentUrl
+      .replace('https://paydpuwjjuezmjfzxmvi.supabase.co/storage/v1/object/public/', '');
+    const [bucket, ...rest] = path.split('/');
+    const signedUrl = await this.storage.getSignedUrl(bucket, rest.join('/'), 3600);
+    return { signedUrl, fileName: `despacho-${dispatch.cd}.pdf`, expiresIn: 3600 };
   }
 
   async updateTracking(id: string, dto: UpdateTrackingDto, user: AuthUser) {
@@ -172,6 +195,32 @@ export class ShipmentsService {
       create: { cd: dispatchCd, shipmentId: id, dispatcherId: user.id, status: 'approved', notes: dto.notes, validatedAt: new Date() },
     });
 
+    // Gerar PDF do Despacho Aduaneiro (best-effort)
+    try {
+      const appUrl   = this.config.get<string>('APP_URL') ?? 'http://localhost:3000';
+      const orderCd  = (shipment as any).order?.cd as string | undefined;
+      const pdfBuf   = await this.pdfGen.generateDispatch({
+        dispatchCd,
+        shipmentCd:     shipment.cd,
+        orderCd,
+        approvedAt:     new Date(),
+        approvedByName: (user as any).fullName ?? user.id,
+        origin:         shipment.origin,
+        destination:    shipment.destination,
+        verifyUrl:      `${appUrl}/verify/dispatch/${id}`,
+      });
+      const fileName = `despacho-${dispatchCd}-${Date.now()}.pdf`;
+      const { storageUrl } = await this.storage.upload(
+        'emitted-docs', `dispatches/${id}/${fileName}`, pdfBuf, 'application/pdf',
+      );
+      await this.prisma.customsDispatch.update({
+        where: { shipmentId: id },
+        data:  { dispatchDocumentUrl: storageUrl },
+      });
+    } catch (_) {
+      // best-effort
+    }
+
     await this.audit.log({
       userId: user.id, role: user.role,
       action: 'CUSTOMS_APPROVE',
@@ -180,7 +229,7 @@ export class ShipmentsService {
       after:  { status: 'customs_approved' },
     });
 
-    return dispatch;
+    return this.prisma.customsDispatch.findUnique({ where: { shipmentId: id } });
   }
 
   async reject(id: string, dto: CustomsRejectDto, user: AuthUser) {

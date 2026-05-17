@@ -9,11 +9,21 @@ import { AuditService } from '../audit/audit.service';
 import { TaxEngineService } from '../../common/services/tax-engine.service';
 import { CodeGeneratorService } from '../../common/services/code-generator.service';
 import { TransactionsService } from '../transactions/transactions.service';
+import { StorageService } from '../../common/services/storage.service';
+import { PdfGeneratorService } from '../../common/services/pdf-generator.service';
+import { ConfigService } from '@nestjs/config';
+import { ComplianceAlertsService } from '../compliance-alerts/compliance-alerts.service';
 import { paginate, PaginationDto, PaginatedResult } from '../../common/dto/pagination.dto';
 import type { AuthUser } from '../../common/types/auth-user.type';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { BlockOrderDto } from './dto/block-order.dto';
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isUuidOrCd(value: string): { id: string } | { cd: string } {
+  return UUID_REGEX.test(value) ? { id: value } : { cd: value };
+}
 
 @Injectable()
 export class OrdersService {
@@ -23,6 +33,10 @@ export class OrdersService {
     private codeGen:       CodeGeneratorService,
     private taxEngine:     TaxEngineService,
     private transactions:  TransactionsService,
+    private storage:       StorageService,
+    private pdfGen:        PdfGeneratorService,
+    private config:        ConfigService,
+    private compliance:    ComplianceAlertsService,
   ) {}
 
   async create(dto: CreateOrderDto, user: AuthUser) {
@@ -237,8 +251,9 @@ export class OrdersService {
   }
 
   async findOne(id: string, user?: AuthUser) {
-    const order = await this.prisma.order.findUnique({
-      where:   { id },
+    const where = isUuidOrCd(id);
+    const order = await this.prisma.order.findFirst({
+      where,
       include: {
         buyer:   { select: { id: true, fullName: true } },
         company: { select: { id: true, name: true, country: true } },
@@ -316,11 +331,63 @@ export class OrdersService {
       },
     });
 
-    await this.transactions.create({
+    const transaction = await this.transactions.create({
       orderId:  orderId,
       amount:   totalAmount,
       currency: order.currency,
     });
+
+    // Gerar Fatura e Recibo PDF (best-effort)
+    try {
+      const appUrl = this.config.get<string>('APP_URL') ?? 'http://localhost:3000';
+
+      const buyerCompany  = order.company;
+      const producerLines = order.lines.map(l => ({
+        productName: l.product.name,
+        category:    l.product.category,
+        qty:         l.qty,
+        unitPrice:   Number(l.unitPrice),
+        taxRate:     Number(l.taxRate ?? 0),
+        taxAmount:   Number(l.taxAmount ?? 0),
+        lineTotal:   Number(l.lineTotal ?? 0),
+      }));
+
+      const invoiceBuf = await this.pdfGen.generateInvoice({
+        orderCd:       updated.cd,
+        transactionCd: transaction.cd,
+        issuedAt:      new Date(),
+        seller: { companyName: 'Corredor do Lobito', licenseNumber: null, country: 'angola', address: null },
+        buyer:  { companyName: buyerCompany.name, licenseNumber: buyerCompany.licenseNumber, country: buyerCompany.country },
+        lines:  producerLines,
+        netAmount,
+        taxAmount,
+        totalAmount,
+        currency:    order.currency,
+        verifyUrl:   `${appUrl}/verify/invoice/${orderId}`,
+      });
+
+      const receiptBuf = await this.pdfGen.generateReceipt({
+        transactionCd: transaction.cd,
+        orderCd:       updated.cd,
+        amount:        totalAmount,
+        currency:      order.currency,
+        paidAt:        new Date(),
+        method:        'bank_transfer',
+        verifyUrl:     `${appUrl}/verify/receipt/${transaction.id}`,
+      });
+
+      const [inv, rec] = await Promise.all([
+        this.storage.upload('emitted-docs', `invoices/${orderId}/fatura-${updated.cd}.pdf`, invoiceBuf, 'application/pdf'),
+        this.storage.upload('emitted-docs', `receipts/${transaction.id}/recibo-${transaction.cd}.pdf`, receiptBuf, 'application/pdf'),
+      ]);
+
+      await this.prisma.transaction.update({
+        where: { id: transaction.id },
+        data:  { invoiceUrl: inv.storageUrl, receiptUrl: rec.storageUrl },
+      });
+    } catch (_) {
+      // PDF é best-effort — não bloqueia o pagamento
+    }
 
     await this.audit.log({
       userId: user.id, role: user.role,
@@ -328,6 +395,13 @@ export class OrdersService {
       entity: 'order', entityId: orderId,
       after:  { status: 'paid', totalAmount, taxAmount, netAmount },
     });
+
+    // Detecção automática de compliance (best-effort)
+    Promise.allSettled([
+      this.compliance.checkHighValueTransaction(orderId, totalAmount, order.companyId),
+      this.compliance.checkRecentlyLicensedCompany(order.companyId, orderId, totalAmount),
+      this.compliance.checkBlockedOrderHistory(user.id, orderId),
+    ]).catch(() => {/* silencioso */});
 
     return updated;
   }
@@ -405,8 +479,34 @@ export class OrdersService {
     return updated;
   }
 
+  async getInvoicePdf(orderId: string, user: AuthUser) {
+    const order = await this.findOrFail(orderId);
+    if (order.buyerId !== user.id && !['state','staff','compliance','specialist','analyst'].includes(user.role)) {
+      throw new ForbiddenException('Acesso negado');
+    }
+    const trx = await this.prisma.transaction.findUnique({ where: { orderId } });
+    if (!trx?.invoiceUrl) throw new NotFoundException('Fatura ainda não foi gerada. O pedido deve estar pago.');
+    const path = trx.invoiceUrl.replace('https://paydpuwjjuezmjfzxmvi.supabase.co/storage/v1/object/public/', '');
+    const [bucket, ...rest] = path.split('/');
+    const signedUrl = await this.storage.getSignedUrl(bucket, rest.join('/'), 3600);
+    return { signedUrl, fileName: `fatura-${order.cd}.pdf`, expiresIn: 3600 };
+  }
+
+  async getReceiptPdf(orderId: string, user: AuthUser) {
+    const order = await this.findOrFail(orderId);
+    if (order.buyerId !== user.id && !['state','staff','compliance','specialist','analyst'].includes(user.role)) {
+      throw new ForbiddenException('Acesso negado');
+    }
+    const trx = await this.prisma.transaction.findUnique({ where: { orderId } });
+    if (!trx?.receiptUrl) throw new NotFoundException('Recibo ainda não foi gerado. O pedido deve estar pago.');
+    const path = trx.receiptUrl.replace('https://paydpuwjjuezmjfzxmvi.supabase.co/storage/v1/object/public/', '');
+    const [bucket, ...rest] = path.split('/');
+    const signedUrl = await this.storage.getSignedUrl(bucket, rest.join('/'), 3600);
+    return { signedUrl, fileName: `recibo-${trx.cd}.pdf`, expiresIn: 3600 };
+  }
+
   private async findOrFail(id: string) {
-    const order = await this.prisma.order.findUnique({ where: { id } });
+    const order = await this.prisma.order.findFirst({ where: isUuidOrCd(id) });
     if (!order) throw new NotFoundException('Pedido não encontrado');
     return order;
   }

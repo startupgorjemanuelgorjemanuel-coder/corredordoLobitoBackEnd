@@ -15,6 +15,9 @@ import { ShipmentsModule } from './modules/shipments/shipments.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { SupportTicketsModule } from './modules/support-tickets/support-tickets.module';
+import { DocumentsModule } from './modules/documents/documents.module';
+import { VerifyModule } from './modules/verify/verify.module';
+import { ComplianceAlertsModule } from './modules/compliance-alerts/compliance-alerts.module';
 
 @Module({
   imports: [
@@ -34,6 +37,9 @@ import { SupportTicketsModule } from './modules/support-tickets/support-tickets.
     ReportsModule,
     DashboardModule,
     SupportTicketsModule,
+    DocumentsModule,
+    VerifyModule,
+    ComplianceAlertsModule,
   ],
 })
 export class AppModule {}

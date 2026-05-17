@@ -15,7 +15,8 @@ export type EntitySequence =
   | 'reports'
   | 'audit_logs'
   | 'support_tickets'
-  | 'compliance_alerts';
+  | 'compliance_alerts'
+  | 'documents';
 
 const CD_PREFIX: Record<EntitySequence, string> = {
   users:              'USR-',
@@ -32,6 +33,7 @@ const CD_PREFIX: Record<EntitySequence, string> = {
   audit_logs:         'LOG-',
   support_tickets:    'TKT-',
   compliance_alerts:  'ALT-',
+  documents:          'DOC-',
 };
 
 @Injectable()

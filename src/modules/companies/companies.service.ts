@@ -6,6 +6,9 @@ import {
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CodeGeneratorService } from '../../common/services/code-generator.service';
+import { StorageService } from '../../common/services/storage.service';
+import { PdfGeneratorService } from '../../common/services/pdf-generator.service';
+import { ConfigService } from '@nestjs/config';
 import { paginate, PaginationDto, PaginatedResult } from '../../common/dto/pagination.dto';
 import { AuthUser } from '../../common/types/auth-user.type';
 import { CreateCompanyDto } from './dto/create-company.dto';
@@ -20,6 +23,9 @@ export class CompaniesService {
     private prisma:   PrismaService,
     private audit:    AuditService,
     private codeGen:  CodeGeneratorService,
+    private storage:  StorageService,
+    private pdfGen:   PdfGeneratorService,
+    private config:   ConfigService,
   ) {}
 
   async create(dto: CreateCompanyDto, user: AuthUser) {
@@ -71,7 +77,25 @@ export class CompaniesService {
   }
 
   async findOne(id: string) {
-    return this.findOrFail(id);
+    const company = await this.findOrFail(id);
+    const documents = await this.prisma.document.findMany({
+      where:   { entityType: 'company', entityId: id },
+      orderBy: { createdAt: 'desc' },
+      select:  { id: true, cd: true, type: true, name: true, fileName: true, mimeType: true, sizeBytes: true, status: true, rejectedReason: true, createdAt: true },
+    });
+    return { ...company, documents };
+  }
+
+  async getLicensePdf(id: string) {
+    const company = await this.findOrFail(id);
+    if (!company.licenseDocumentUrl) {
+      throw new NotFoundException('PDF da licença ainda não foi gerado. A licença deve estar activa.');
+    }
+    const [bucket, ...rest] = company.licenseDocumentUrl
+      .replace('https://paydpuwjjuezmjfzxmvi.supabase.co/storage/v1/object/public/', '')
+      .split('/');
+    const signedUrl = await this.storage.getSignedUrl(bucket, rest.join('/'), 3600);
+    return { signedUrl, fileName: `licenca-${company.cd}.pdf`, expiresIn: 3600 };
   }
 
   async update(id: string, dto: UpdateCompanyDto) {
@@ -160,6 +184,31 @@ export class CompaniesService {
       },
     });
 
+    // Gerar PDF da licença e guardar no Storage
+    try {
+      const appUrl = this.config.get<string>('APP_URL') ?? 'http://localhost:3000';
+      const verifyUrl = `${appUrl}/verify/license/${id}`;
+      const pdfBuffer = await this.pdfGen.generateLicense({
+        companyName:    updated.name,
+        companyCd:      updated.cd,
+        companyCountry: updated.country,
+        companyType:    updated.companyType ?? null,
+        contactEmail:   updated.contactEmail,
+        licenseNumber:  dto.licenseNumber,
+        issuedAt:       new Date(),
+        expiresAt:      new Date(dto.licenseExpiresAt),
+        approvedByName: user.fullName ?? user.id,
+        verifyUrl,
+      });
+      const fileName = `licenca-${updated.cd}-${Date.now()}.pdf`;
+      const { storageUrl } = await this.storage.upload(
+        'emitted-docs', `licenses/${id}/${fileName}`, pdfBuffer, 'application/pdf',
+      );
+      await this.prisma.company.update({ where: { id }, data: { licenseDocumentUrl: storageUrl } });
+    } catch (e) {
+      // PDF é best-effort — não bloqueia a aprovação
+    }
+
     await this.audit.log({
       userId: user.id, role: user.role,
       action: 'APPROVE_LICENSE',
@@ -168,7 +217,7 @@ export class CompaniesService {
       after:  { licenseStatus: 'active' },
     });
 
-    return updated;
+    return this.prisma.company.findUnique({ where: { id } });
   }
 
   async rejectLicense(id: string, dto: RejectOrSuspendDto, user: AuthUser) {

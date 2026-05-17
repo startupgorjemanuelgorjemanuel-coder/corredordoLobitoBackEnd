@@ -1,7 +1,7 @@
 import {
   Controller, Get, Post, Put, Body, Param, Query, UseGuards, HttpCode,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { CompaniesService } from './companies.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -38,6 +38,13 @@ export class CompaniesController {
   @UseGuards(JwtAuthGuard)
   findOne(@Param('id') id: string) {
     return this.companiesService.findOne(id);
+  }
+
+  @Get(':id/license-pdf')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Download da Licença Comercial PDF (URL pré-assinada 60 min)' })
+  getLicensePdf(@Param('id') id: string) {
+    return this.companiesService.getLicensePdf(id);
   }
 
   @Put(':id')
